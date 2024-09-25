@@ -13,3 +13,11 @@ class User(UserBase):
 
     class Config:
         orm_mode = True
+
+class WalletCreate(BaseModel):
+    user_id: int
+    personal_account: int
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
