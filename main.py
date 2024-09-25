@@ -1,41 +1,30 @@
 from typing import Union
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Depends, HTTPException
+from database import SessionLocal, engine
+import models, schemas, crud
+from sqlalchemy.orm import Session
+
+
+models.Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI()
 
-# @app.get("/")
-# def read_root():
-# return {"Hello World"}
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
-class RegistrationRequest(BaseModel):
-    id: int
-    username: str
-    emal: Union[str, None] = None
-    password: str
-
-@app.post("/registration")
-async def registration(item: RegistrationRequest):
-    return {
-        "message": "User registered successfully"
-    }
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-@app.post("/login")
-async def login(item: LoginRequest):
-    if not all([
-        len(item.password) >= 8,
-        any(char.isdigit() for char in item.password),
-        any(char.isupper() for char in item.password),
-    ]):
-        return {
-            "message": "Password must be at least 8 characters, \
-             contain at least one digit and one uppercase letter"
-        }
-    return {
-        "message": "Login successful"
-    }
+@app.post("/registration", response_model=schemas.User)
+def registration(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    if not user.username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    if not user.email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    db_user = crud.get_user_by_email(db, email=user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    return crud.registration(db=db, user=user)
